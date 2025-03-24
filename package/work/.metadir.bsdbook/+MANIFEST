@@ -1,0 +1,16 @@
+name: "bsdbook"
+version: "1.6"
+origin: devel/package
+comment: <<EOD
+Simple notes manager for bsd.
+EOD
+maintainer: twofaced-janus@yandex.ru
+prefix: /usr/local
+categories: [ devel, ]
+licenselogic: single
+www: "https://github.com/TwelveFacedJanus/BSDBook/"
+licenses: [ MIT, ]
+deps: { 
+}
+options: {
+}
