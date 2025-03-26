@@ -173,7 +173,7 @@ int is_regular_file(const char *path) {
     return S_ISREG(statbuf.st_mode);
 }
 
-void show_todos() {
+void find_by_tag(const char* tag) {
     char* default_books_path = get_default_books_path();
     DIR *books_dir = opendir(default_books_path);
     if (!books_dir) {
@@ -209,7 +209,7 @@ void show_todos() {
                     char line[1024];
                     int line_number = 1;
                     while (fgets(line, sizeof(line), note_file)) {
-                        if (strstr(line, "#todo")) {
+                        if (strstr(line, tag)) {
                             printf("[Book: %s, Note: %s, Line %d] %s", book_entry->d_name, note_entry->d_name, line_number, line);
                         }
                         line_number++;
@@ -226,6 +226,15 @@ void show_todos() {
     closedir(books_dir);
     free(default_books_path);
 }
+
+void show_todos() {
+    find_by_tag("#todo");
+}
+
+void show_links() {
+    find_by_tag("#link");
+}
+
 
 void print_notes_from_book(const char *book_name) {
     char* default_books_path = get_default_books_path();
@@ -361,6 +370,8 @@ int main(int argc, char* argv[]) {
     } else if (strcmp(argv[1], "show") == 0) {
         if (argc >= 3 && strcmp(argv[2], "todos") == 0) {
             show_todos();
+        } else if (argc >= 3 && strcmp(argv[2], "links") == 0) {
+            show_links();
         } else if (argc >= 3) {
             print_notes_from_book(argv[2]);
         }
