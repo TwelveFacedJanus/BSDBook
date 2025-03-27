@@ -5,6 +5,14 @@
   <image src="https://github.com/TwelveFacedJanus/BSDBook/blob/main/helpscreen.png">
 </div>
 
+## Build from source
+```sh
+$ git clone https://github.com/TwelveFacedJanus/BSDBook.git
+$ cd BSDBook
+$ make && make install
+```
+
+
 ## Tested on
 - OS: FreeBSD 14.2-RELEASE-p1
 - compiler: gcc13
