@@ -24,22 +24,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
+          node-version: "20"
           cache: 'npm'
           cache-dependency-path: 'bsdbookweb/package-lock.json'
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
-      - name: Restore cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            bsdbookweb/.next/cache
-            bsdbookweb/node_modules
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('bsdbookweb/package-lock.json') }}-${{ hashFiles('bsdbookweb/**.[jt]s', 'bsdbookweb/**.[jt]sx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('bsdbookweb/package-lock.json') }}-
 
       - name: Install dependencies
         working-directory: ./bsdbookweb
@@ -48,8 +38,11 @@ jobs:
       - name: Build with Next.js
         working-directory: ./bsdbookweb
         run: |
-          npx next build
-          npx next export -o ../out
+          npm run build
+          npm run export
+
+      - name: Move export to root
+        run: mv bsdbookweb/out .
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
