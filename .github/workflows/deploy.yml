@@ -38,8 +38,8 @@ jobs:
       - name: Build with Next.js
         working-directory: ./bsdbookweb
         run: |
-          npm run build
-          npm run export
+          npx next build
+          npx next export
 
       - name: Move export to root
         run: mv bsdbookweb/out .
