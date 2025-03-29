@@ -13,6 +13,7 @@
 #include <ncurses.h> // For TUI
 #include "./bsdcore.h"
 
+
 void show_tui_help(WINDOW *win) {
     // Clear the window and display help information
     wclear(win);
@@ -129,3 +130,4 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
