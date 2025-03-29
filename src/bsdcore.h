@@ -223,6 +223,30 @@ void get_books() {
     free(default_books_path);
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Callback function for nftw() to delete files and directories recursively.
+ *     @DESCRIPTION:
+ *          This function is used as a callback by nftw() to remove files and directories.
+ *          It's called for each file/directory in the hierarchy.
+ *     @PARAMETERS:
+ *          - const char* fpath: Path to the current file/directory
+ *          - const struct stat* sb: Pointer to stat structure with file info
+ *          - int typeflag: File type flag
+ *          - struct FTW* ftwbuf: FTW structure with additional info
+ *     @RETURN:
+ *          - 0 on success, -1 on error
+ *     @NOTES:
+ *          - Used internally by delete_folder_recursive()
+ *     @EXAMPLE:
+ *          ```c
+ *          nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW* ftwbuf) {
     int rv = remove(fpath);
     if (rv)
@@ -230,10 +254,51 @@ int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW
     return rv;
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Deletes a folder and all its contents recursively.
+ *     @DESCRIPTION:
+ *          Uses nftw() to traverse directory tree and delete all files and subdirectories.
+ *     @PARAMETERS:
+ *          - const char* fpath: Path to directory to delete
+ *     @RETURN:
+ *          - 0 on success, -1 on error
+ *     @NOTES:
+ *          - Uses unlink_cb() as callback function
+ *          - Deletes everything including the root directory
+ *     @EXAMPLE:
+ *          ```c
+ *          delete_folder_recursive("/path/to/folder");
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 int delete_folder_recursive(const char* fpath) {
     return nftw(fpath, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Displays welcome message and usage help.
+ *     @DESCRIPTION:
+ *          Prints basic information about the program and available commands.
+ *     @PARAMETERS:
+ *          - None
+ *     @RETURN:
+ *          - None
+ *     @NOTES:
+ *          - Called when program starts without arguments or with help flag
+ *     @EXAMPLE:
+ *          ```c
+ *          show_welcome_and_help();
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 void show_welcome_and_help() {
     printf("Welcome to BSDNotes!\n");
     printf("Usage:\n");
@@ -249,6 +314,28 @@ void show_welcome_and_help() {
     printf("  ./bsdnotes --tui                    - Open BSDNotes in TUI mode\n");
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Checks if a path is a directory.
+ *     @DESCRIPTION:
+ *          Uses stat() to check if the given path refers to a directory.
+ *     @PARAMETERS:
+ *          - const char* path: Path to check
+ *     @RETURN:
+ *          - 1 if path is directory, 0 otherwise
+ *     @NOTES:
+ *          - Returns 0 if path cannot be accessed
+ *     @EXAMPLE:
+ *          ```c
+ *          if (is_directory("/path/to/check")) {
+ *              // It's a directory
+ *          }
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 int is_directory(const char *path) {
     struct stat statbuf;
     if (stat(path, &statbuf) != 0)
@@ -256,6 +343,28 @@ int is_directory(const char *path) {
     return S_ISDIR(statbuf.st_mode);
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Checks if a path is a regular file.
+ *     @DESCRIPTION:
+ *          Uses stat() to check if the given path refers to a regular file.
+ *     @PARAMETERS:
+ *          - const char* path: Path to check
+ *     @RETURN:
+ *          - 1 if path is regular file, 0 otherwise
+ *     @NOTES:
+ *          - Returns 0 if path cannot be accessed
+ *     @EXAMPLE:
+ *          ```c
+ *          if (is_regular_file("/path/to/check")) {
+ *              // It's a regular file
+ *          }
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 int is_regular_file(const char *path) {
     struct stat statbuf;
     if (stat(path, &statbuf) != 0)
@@ -263,6 +372,28 @@ int is_regular_file(const char *path) {
     return S_ISREG(statbuf.st_mode);
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Searches all notes for lines containing a specific tag.
+ *     @DESCRIPTION:
+ *          Recursively searches through all books and notes for lines containing the given tag.
+ *          Prints matching lines with book and note information.
+ *     @PARAMETERS:
+ *          - const char* tag: Tag to search for (e.g. "#todo")
+ *     @RETURN:
+ *          - None
+ *     @NOTES:
+ *          - Uses get_default_books_path() to locate books directory
+ *          - Prints results to stdout
+ *     @EXAMPLE:
+ *          ```c
+ *          find_by_tag("#important");
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 void find_by_tag(const char* tag) {
     char* default_books_path = get_default_books_path("/books");
     DIR *books_dir = opendir(default_books_path);
@@ -317,15 +448,75 @@ void find_by_tag(const char* tag) {
     free(default_books_path);
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Shows all TODO items from all notes.
+ *     @DESCRIPTION:
+ *          Wrapper around find_by_tag() that searches for "#todo" tags.
+ *     @PARAMETERS:
+ *          - None
+ *     @RETURN:
+ *          - None
+ *     @NOTES:
+ *          - Calls find_by_tag("#todo")
+ *     @EXAMPLE:
+ *          ```c
+ *          show_todos();
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 void show_todos() {
     find_by_tag("#todo");
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Shows all link items from all notes.
+ *     @DESCRIPTION:
+ *          Wrapper around find_by_tag() that searches for "#link" tags.
+ *     @PARAMETERS:
+ *          - None
+ *     @RETURN:
+ *          - None
+ *     @NOTES:
+ *          - Calls find_by_tag("#link")
+ *     @EXAMPLE:
+ *          ```c
+ *          show_links();
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 void show_links() {
     find_by_tag("#link");
 }
 
-
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Lists all notes in a book with their last modification time.
+ *     @DESCRIPTION:
+ *          Prints all notes in the specified book along with their last edited timestamp.
+ *     @PARAMETERS:
+ *          - const char* book_name: Name of book to show notes from
+ *     @RETURN:
+ *          - None
+ *     @NOTES:
+ *          - Uses stat() to get file modification time
+ *          - Prints to stdout
+ *     @EXAMPLE:
+ *          ```c
+ *          print_notes_from_book("mybook");
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
 void print_notes_from_book(const char *book_name) {
     char* default_books_path = get_default_books_path("/books");
     char book_path[1024];
