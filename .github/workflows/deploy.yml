@@ -21,24 +21,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect package manager
-        id: detect-package-manager
-        run: |
-          if [ -f "${{ github.workspace }}/bsdbookweb/package.json" ]; then
-            echo "manager=npm" >> $GITHUB_OUTPUT
-            echo "command=ci" >> $GITHUB_OUTPUT
-            echo "runner=npx --no-install" >> $GITHUB_OUTPUT
-            exit 0
-          else
-            echo "Unable to determine package manager"
-            exit 1
-          fi
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
-          cache: ${{ steps.detect-package-manager.outputs.manager }}
+          cache: 'npm'
+          cache-dependency-path: 'bsdbookweb/package-lock.json'
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -48,19 +36,20 @@ jobs:
         with:
           path: |
             bsdbookweb/.next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('bsdbookweb/package-lock.json', 'bsdbookweb/yarn.lock') }}-${{ hashFiles('bsdbookweb/**.[jt]s', 'bsdbookweb/**.[jt]sx') }}
+            bsdbookweb/node_modules
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('bsdbookweb/package-lock.json') }}-${{ hashFiles('bsdbookweb/**.[jt]s', 'bsdbookweb/**.[jt]sx') }}
           restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('bsdbookweb/package-lock.json', 'bsdbookweb/yarn.lock') }}-
+            ${{ runner.os }}-nextjs-${{ hashFiles('bsdbookweb/package-lock.json') }}-
 
       - name: Install dependencies
         working-directory: ./bsdbookweb
-        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+        run: npm ci
 
       - name: Build with Next.js
         working-directory: ./bsdbookweb
         run: |
-          ${{ steps.detect-package-manager.outputs.runner }} next build
-          ${{ steps.detect-package-manager.outputs.runner }} next export -o ../out
+          npx next build
+          npx next export -o ../out
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
