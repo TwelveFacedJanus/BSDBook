@@ -165,7 +165,6 @@ int create_book(const char* bookname)
 
     if (mkdir(book_path, 0755) == 0)
     {
-        free(&book_path);
         printf("Book has been created!\n");
         return 0;
     }

@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (strcmp(argv[1], "install") == 0) {
-        install_bsdbook();
+        printf("Deprecated. BSDBook already installed.");
     } else if (argc >= 2 && strcmp(argv[1], "delete") == 0) {
         if (argc >= 4 && strcmp(argv[2], "book") == 0) {
             char* default_books_path = get_default_books_path("/books");
