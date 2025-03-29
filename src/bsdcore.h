@@ -17,26 +17,88 @@
 #include <ncurses.h>
 
 
+
 #define DEFAULT_BOOKS_PATH "$HOME/books"
 
-char* get_default_books_path() {
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *     		This functions generate string path to $HOME/folder.
+ *     @DESCRIPTION:
+ *     		Function use stdlib.h and stdio.h files. It's exit from program if something went
+ *     		wrong.
+ *     @PARAMETERS:
+ *     		- None (void)
+ *     @RETURN:
+ *     		- Character string of $HOME/folder.
+ *     @NOTES:
+ *   		- Its allocate memory for default_books_path. Maybe i need to dealloc memory for it?
+ *   		- [FIXED UPDATE]: 03.29.25. Memory deallocation and now returns "" string if something went
+ *   		wrong.
+ *     @EXAMPLE:
+ *     		```c
+ *     		#include <stdio.h>
+ *     		#include <stdlib.h>
+ *
+ *     		int main(void) {
+ *			const char* books_path = get_default_books_path();
+ *			if (books_path) {
+ *				...;
+ *			}
+ *     		}
+ *     		```
+ *     @UPDATES:
+ *     	03.29.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [FIXED]:
+ *     		If something went wrong, function destroy program with EXIT_FAILURE error code,
+ *   		but allocated memory for
+ *   		structs and etc doesn't deallocate automatically.
+ *
+ =========================================================================================*/
+char* get_default_books_path(const char* path) {
     char* home_dir = getenv("HOME");
     if (home_dir == NULL) {
         perror("Unable to get HOME directory");
-        exit(EXIT_FAILURE);
+        return "";
     }
-    char* default_books_path = malloc(strlen(home_dir) + strlen("/books") + 1);
+    char* default_books_path = malloc(strlen(home_dir) + strlen(path) + 1);
     if (default_books_path == NULL) {
+	free(default_books_path);
         perror("Unable to allocate memory");
-        exit(EXIT_FAILURE);
+        return "";
     }
-    sprintf(default_books_path, "%s/books", home_dir);
+    sprintf(default_books_path, "%s/%s", home_dir, path);
     return default_books_path;
 }
 
+
+/* =======================================================================================
+ * 
+ *    @BRIEF:
+ *    		Function that creates .bdsb document ( note ) in $HOME/books folder.
+ *    @DESCRIPTION:
+ *    		Function use stdlib and stdio libraries for creating note in $HOME/books directory.
+ *    @PARAMETERS:
+ *    		const char *bookname - name of book;
+ *    		const char *notename - name of note.
+ *    @RETURN:
+ *    		1) 0 if all ok and note has been created;
+ *    		2) -1 if something went wrong.
+ *    @NOTES:
+ *    		None.
+ *    @EXAMPLE:
+ *    		```c
+ *    		if (create_note("myfuckingnote", "mybooks") == 0) {
+ *			printf("Note has been created!\n");
+ *    		}
+ *    		```
+ *    @UPDATES:
+ *    	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
+ *    		Documentation of this function has been created.
+ *
+ *==============================================================================================*/
 int create_note(const char* bookname, const char* notename)
 {
-    char* default_books_path = get_default_books_path();
+    char* default_books_path = get_default_books_path("/books");
     char note_path[1024];
     snprintf(note_path, sizeof(note_path), "%s/%s/%s.bdsb", default_books_path, bookname, notename);
 
@@ -69,9 +131,33 @@ int create_note(const char* bookname, const char* notename)
     return 0;
 }
 
+/* =======================================================================================
+ * 
+ *    @BRIEF:
+ *    		Function that creates new books with bookname.
+ *    @DESCRIPTION:
+ *    		Function use stdlib and stdio libraries for creating book in $HOME/books directory.
+ *    @PARAMETERS:
+ *    		const char *bookname - name of new book.
+ *    @RETURN:
+ *    		1) 0 if all ok and note has been created;
+ *    		2) -1 if something went wrong.
+ *    @NOTES:
+ *    		None.
+ *    @EXAMPLE:
+ *    		```c
+ *    		if (create_book("mybooks") == 0) {
+ *			printf("Book has been created!\n");
+ *    		}
+ *    		```
+ *    @UPDATES:
+ *    	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
+ *    		Documentation of this function has been created.
+ *
+ *==============================================================================================*/
 int create_book(const char* bookname)
 {
-    char* default_books_path = get_default_books_path();
+    char* default_books_path = get_default_books_path("/books");
     char book_path[1024];
     snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, bookname);
 
@@ -79,6 +165,7 @@ int create_book(const char* bookname)
 
     if (mkdir(book_path, 0755) == 0)
     {
+        free(&book_path);
         printf("Book has been created!\n");
         return 0;
     }
@@ -86,32 +173,30 @@ int create_book(const char* bookname)
     return -1;
 }
 
-int install_bsdbook()
-{
-    char* default_books_path = get_default_books_path();
-    struct stat info;
-    if (stat(default_books_path, &info) != 0) {
-        printf("Directory does not exist. Creating...\n");
-        if (mkdir(default_books_path, 0755) == 0) {
-            printf("Directory created!\n");
-            free(default_books_path);
-            return 0;
-        }
-        printf("Failed to create directory: %s\n", strerror(errno));
-        free(default_books_path);
-        return -1;
-    } else if (info.st_mode & S_IFDIR) {
-        printf("Directory already exists.\n");
-        free(default_books_path);
-        return -1;
-    }
-    printf("Path exists but is not a directory.\n");
-    free(default_books_path);
-    return -1;
-}
+/* =======================================================================================
+ * 
+ *    @BRIEF:
+ *    		Prints books (directories) from $HOME/books folder.
+ *    @DESCRIPTION:
+ *    		Function use stdlib and stdio libraries for printing every book at $HOME/books directory.
+ *    @PARAMETERS:
+ *    		- None.
+ *    @RETURN:
+ *    		- None.
+ *    @NOTES:
+ *    		None.
+ *    @EXAMPLE:
+ *    		```c
+ *    		get_books();
+ *    		```
+ *    @UPDATES:
+ *    	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
+ *    		Documentation of this function has been created.
+ *
+ *==============================================================================================*/
 
 void get_books() {
-    char* default_books_path = get_default_books_path();
+    char* default_books_path = get_default_books_path("/books");
     DIR* dir;
     struct dirent* entry;
     struct stat statbuf;
@@ -179,7 +264,7 @@ int is_regular_file(const char *path) {
 }
 
 void find_by_tag(const char* tag) {
-    char* default_books_path = get_default_books_path();
+    char* default_books_path = get_default_books_path("/books");
     DIR *books_dir = opendir(default_books_path);
     if (!books_dir) {
         perror("Unable to open 'books' directory");
@@ -242,7 +327,7 @@ void show_links() {
 
 
 void print_notes_from_book(const char *book_name) {
-    char* default_books_path = get_default_books_path();
+    char* default_books_path = get_default_books_path("/books");
     char book_path[1024];
     snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, book_name);
 
