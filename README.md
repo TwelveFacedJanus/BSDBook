@@ -1,12 +1,12 @@
 <div align="center">
-  <image src="./Black Theme.png"/>
+  <image src="./docs/images/Black Theme.png"/>
 
   
 </div>
 
 # Usage example
   <p>CLI note manager with vim/neovim editor.</p>
-<image src="https://github.com/TwelveFacedJanus/BSDBook/blob/main/helpscreen.png">
+<image src="https://github.com/TwelveFacedJanus/BSDBook/blob/main/docs/images/helpscreen.png">
 
 ## Build from source
 ```sh

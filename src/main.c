@@ -85,14 +85,14 @@ int main(int argc, char* argv[]) {
         install_bsdbook();
     } else if (argc >= 2 && strcmp(argv[1], "delete") == 0) {
         if (argc >= 4 && strcmp(argv[2], "book") == 0) {
-            char* default_books_path = get_default_books_path();
+            char* default_books_path = get_default_books_path("/books");
             char book_path[1024];
             snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, argv[3]);
             free(default_books_path);
             if (delete_folder_recursive(book_path) == 0)
                 printf("Book has been deleted!\n");
         } else if (argc >= 5 && strcmp(argv[2], "note") == 0) {
-            char* default_books_path = get_default_books_path();
+            char* default_books_path = get_default_books_path("/books");
             char note_path[1024];
             snprintf(note_path, sizeof(note_path), "%s/%s/%s.bdsb", default_books_path, argv[3], argv[4]);
             free(default_books_path);
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
     } else if (strcmp(argv[1], "books") == 0) {
         get_books();
     } else if (strcmp(argv[1], "edit") == 0 && argc >= 4) {
-        char* default_books_path = get_default_books_path();
+        char* default_books_path = get_default_books_path("/books");
         char note_path[1024];
         snprintf(note_path, sizeof(note_path), "%s/%s/%s.bdsb", default_books_path, argv[2], argv[3]);
         free(default_books_path);
