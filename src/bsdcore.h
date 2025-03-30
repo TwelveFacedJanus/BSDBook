@@ -1,3 +1,19 @@
+/*=================================================================================================
+ * 	
+ * 	@FILENAME:	bsdbook.h
+ *
+ * 	@BRIEF:    	File implements core functions for bsdbook application.
+ * 	
+ * 	@DESCRIPTION:	None.
+ * 	
+ * 	@AUTHOR		Daniil (TwelveFacedJanus) Ermolaev.
+ * 	   | CONTACT:	twofaced-janus@yandex.ru
+ *	
+ *	@CREATED AT:	03.30.25
+ *	@UPDATED_AT:	03.30.25
+ *
+ *==================================================================================================*/
+
 #ifndef BSDCORE_H_
 #define BSDCORE_H_
 
@@ -19,6 +35,42 @@
 
 
 #define DEFAULT_BOOKS_PATH "$HOME/books"
+
+
+/*===============================================================================================
+ *
+ * 	@BRIEF:
+ * 		Structs that realize books and notes.
+ * 	@DESCRIPTION:
+ * 		None.
+ * 	@PARAMETERS:
+ * 		Note.name - char*;
+ * 		Book.name - char*;
+ * 		Book.notes - Note*.
+ * 	@RETURN:
+ * 		None.
+ * 	@NOTES:
+ * 		None.
+ * 	@EXAMPLE:
+ * 		```c
+ * 		Note n = (Note){.name = "Jopa"};
+ * 		Book k = (Book){.name = "JopaCore", .notes = { n }};
+ * 		```
+ * 	@UPDATES:
+ *	 03.30.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [NEW]:
+ *	 	Structs has been created.
+ *	 03.30.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]:
+ *	 	Documentation has been created.
+ * =============================================================================================*/
+typedef struct Note {
+	char* name;
+} Note;
+
+
+typedef struct Book {
+	char* name;
+ 	Note* notes;	
+} Book;
 
 /* ==============================================================================================
  *
@@ -193,7 +245,6 @@ int create_book(const char* bookname)
  *    		Documentation of this function has been created.
  *
  *==============================================================================================*/
-
 void get_books() {
     char* default_books_path = get_default_books_path("/books");
     DIR* dir;
