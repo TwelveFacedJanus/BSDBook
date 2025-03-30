@@ -28,26 +28,29 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'bsdbookweb/package-lock.json'
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Install dependencies
         working-directory: ./bsdbookweb
         run: npm ci
 
-      - name: Build with Next.js
+      - name: Build static export
         working-directory: ./bsdbookweb
-        run: |
-          npx next build
-          npx next export
+        run: npm run build
 
-      - name: Move export to root
-        run: mv bsdbookweb/out .
+      - name: Prepare deployment
+        run: |
+          # Create deployment directory
+          mkdir -p deploy
+          # Copy exported files (from next.config.js's distDir)
+          cp -r bsdbookweb/out/* deploy/
+          # Add .nojekyll to bypass GitHub Pages processing
+          touch deploy/.nojekyll
+          # Add CNAME if you're using a custom domain
+          # echo "yourdomain.com" > deploy/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: ./deploy
 
   deploy:
     environment:
