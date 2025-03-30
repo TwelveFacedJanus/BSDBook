@@ -27,4 +27,4 @@ $ docker placeholder
 
 ## TODO
 - webUI
-- AutoRelease
+- AutoRelease v1.8.1
