@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon, MoonIcon, SunIcon, BookOpenIcon, TrashIcon, PlusIc
 import { PencilIcon } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Generate UUID (with fallback)
 function generateUUID() {
@@ -48,6 +49,7 @@ type NotePreview = Pick<Note, 'id' | 'title' | 'updatedAt' | 'tags' | 'bookId'>;
 // Storage Utilities
 const NOTES_KEY = "obsidian-notes";
 const BOOKS_KEY = "obsidian-books";
+const FIRST_RUN_KEY = "bsdbook-first-run";
 
 const getNotes = (): Note[] => {
   if (typeof window === "undefined") return [];
@@ -234,6 +236,58 @@ const moveNoteToBook = (noteId: string, targetBookId: string | null) => {
 
   return { notes: getNotes(), books: getBooks() };
 };
+
+// Welcome Screen Component
+function WelcomeScreen({ onClose }: { onClose: () => void }) {
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 1.5 }}
+        className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+      >
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="text-center"
+        >
+          <motion.h1 
+            className="text-5xl font-bold text-white mb-6"
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+          >
+            Добро пожаловать в BSDBook
+          </motion.h1>
+          <motion.p 
+            className="text-xl text-gray-300 mb-8"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.9, duration: 0.8 }}
+          >
+            Ваш цифровой сад для заметок и размышлений
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5, duration: 1 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black"
+              initial={{ scale: 0 }}
+              animate={{ scale: 3, opacity: 0 }}
+              transition={{ delay: 2, duration: 1.5 }}
+              onAnimationComplete={onClose}
+            />
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 // Components
 function ThemeToggle() {
@@ -648,6 +702,7 @@ export default function Home() {
     y: number;
   } | null>(null);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -656,6 +711,15 @@ export default function Home() {
     setNotes(loadedNotes);
     setBooks(loadedBooks);
     
+    // Check for first run
+    if (typeof window !== "undefined") {
+      const firstRun = localStorage.getItem(FIRST_RUN_KEY);
+      if (!firstRun) {
+        setShowWelcome(true);
+        localStorage.setItem(FIRST_RUN_KEY, "false");
+      }
+    }
+
     if (loadedNotes.length > 0 && !selectedNoteId) {
       setSelectedNoteId(loadedNotes[0].id);
     }
@@ -786,6 +850,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+      {/* Welcome Screen */}
+      {showWelcome && (
+        <WelcomeScreen onClose={() => setShowWelcome(false)} />
+      )}
+      
       <div className="flex">
         {/* Sidebar */}
         <div 
