@@ -38,15 +38,18 @@ jobs:
 
       - name: Prepare deployment
         run: |
-          # Create deployment directory
           mkdir -p deploy
-          # Copy exported files (from next.config.js's distDir)
           cp -r bsdbookweb/out/* deploy/
-          # Add .nojekyll to bypass GitHub Pages processing
+          
+          # Fix all absolute paths in HTML files
+          find deploy -type f -name '*.html' -exec sed -i 's|href="/_next/|href="_next/|g' {} +
+          find deploy -type f -name '*.html' -exec sed -i 's|src="/_next/|src="_next/|g' {} +
+          
+          # Fix CSS url() references
+          find deploy/_next/static/css -type f -name '*.css' -exec sed -i 's|url(/|url(./|g' {} +
+          
           touch deploy/.nojekyll
-          # Add CNAME if you're using a custom domain
-          # echo "yourdomain.com" > deploy/CNAME
-
+          
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
