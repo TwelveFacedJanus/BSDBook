@@ -24,13 +24,13 @@ jobs:
         dpkg-buildpackage -us -uc
         
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: bsdbook-deb-package
         path: ../bsdbook_*.deb
         
     - name: Create release and upload package
       if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: ../bsdbook_*.deb
