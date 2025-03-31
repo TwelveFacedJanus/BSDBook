@@ -1,16 +1,12 @@
 /*=================================================================================================
  * 	
- * 	@FILENAME:	bsdbook.h
- *
- * 	@BRIEF:    	File implements core functions for bsdbook application.
- * 	
- * 	@DESCRIPTION:	None.
- * 	
- * 	@AUTHOR		Daniil (TwelveFacedJanus) Ermolaev.
- * 	   | CONTACT:	twofaced-janus@yandex.ru
- *	
- *	@CREATED AT:	03.30.25
- *	@UPDATED_AT:	03.30.25
+ * 	@FILENAME:	      bsdbook.h
+ * 	@BRIEF:    	      File implements core functions for bsdbook application.
+ * 	@DESCRIPTION:	  None.
+ * 	@AUTHOR		      Daniil (TwelveFacedJanus) Ermolaev.
+ * 	   | CONTACT:	  twofaced-janus@yandex.ru
+ *	@CREATED AT:	  03.30.25
+ *	@UPDATED_AT:	  03.31.25
  *
  *==================================================================================================*/
 
@@ -19,6 +15,7 @@
 
 
 #define _XOPEN_SOURCE 500
+#define DEFAULT_BOOKS_PATH "$HOME/books"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,10 +28,6 @@
 #include <errno.h>
 #include <time.h>
 #include <ncurses.h>
-
-
-
-#define DEFAULT_BOOKS_PATH "$HOME/books"
 
 
 /*===============================================================================================
@@ -61,16 +54,21 @@
  *	 	Structs has been created.
  *	 03.30.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]:
  *	 	Documentation has been created.
+ *
  * =============================================================================================*/
-typedef struct Note {
+typedef struct Note
+{
 	char* name;
 } Note;
 
 
-typedef struct Book {
+typedef struct Book
+{
 	char* name;
- 	Note* notes;	
+ 	Note* notes;
+    int32_t notes_count;
 } Book;
+
 
 /* ==============================================================================================
  *
@@ -106,7 +104,8 @@ typedef struct Book {
  *   		structs and etc doesn't deallocate automatically.
  *
  =========================================================================================*/
-char* get_default_books_path(const char* path) {
+char* get_default_books_path(const char* path)
+{
     char* home_dir = getenv("HOME");
     if (home_dir == NULL) {
         perror("Unable to get HOME directory");
@@ -245,7 +244,8 @@ int create_book(const char* bookname)
  *    		Documentation of this function has been created.
  *
  *==============================================================================================*/
-void get_books() {
+void get_books()
+{
     char* default_books_path = get_default_books_path("/books");
     DIR* dir;
     struct dirent* entry;
@@ -273,6 +273,211 @@ void get_books() {
     free(default_books_path);
 }
 
+/* =======================================================================================
+ * 
+ *    @BRIEF:
+ *    		Returns array of books (directories) from $HOME/books folder.
+ *    @DESCRIPTION:
+ *    		Function use stdlib and stdio libraries for printing every book at $HOME/books directory.
+ *    @PARAMETERS:
+ *    		- count_of_books
+ *    @RETURN:
+ *    		- Book* - array of books.
+ *    @NOTES:
+ *    		None.
+ *    @EXAMPLE:
+ *    		```c
+ *     		 int book_count;
+ *           Book* books = get_books(&book_count);
+ *           
+ *           if (books) {
+ *               for (int i = 0; i < book_count; i++) {
+ *                   printf("Book: %s\n", books[i].name);
+ *                   // Освобождаем память для каждого имени книги
+ *                   free(books[i].name);
+ *               }
+ *               // Освобождаем массив книг
+ *               free(books);
+ *           }
+ *           
+ *           return 0;
+ *    		```
+ *    @UPDATES:
+ *    	03.31.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
+ *    		Documentation for this function has been created.
+ *
+ *==============================================================================================*/
+Book* get_books_st(int* count)
+{
+    char *default_books_path = get_default_books_path("/books");
+    DIR *dir;
+    struct dirent *entry;
+    struct stat statbuf;
+    Book* books = NULL;
+    int book_count = 0;
+
+    dir = opendir(default_books_path);
+    if (!dir) {
+        perror("opendir");
+        free(default_books_path);
+        *count = 0;
+        return NULL;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char fullpath[1024];
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", default_books_path, entry->d_name);
+
+        if (stat(fullpath, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
+            book_count++;
+        }
+    }
+
+    books = (Book*)malloc(book_count * sizeof(Book));
+    if (!books) {
+        perror("malloc");
+        closedir(dir);
+        free(default_books_path);
+        *count = 0;
+        return NULL;
+    }
+
+    rewinddir(dir);
+    int i = 0;
+    while ((entry = readdir(dir)) != NULL && i < book_count) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char fullpath[1024];
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", default_books_path, entry->d_name);
+
+        if (stat(fullpath, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
+            books[i].name = strdup(entry->d_name);
+            books[i].notes = NULL;
+            books[i].notes_count = 0;
+            i++;
+        }
+    }
+
+    closedir(dir);
+    free(default_books_path);
+    *count = book_count;
+    return books;
+
+}
+
+/* =======================================================================================
+ * 
+ *    @BRIEF:
+ *          Returns array of notes from specified book.
+ *    @DESCRIPTION:
+ *          Scans the specified book directory and returns all notes (.bdsb files) as an array
+ *          of Note structures.
+ *    @PARAMETERS:
+ *          - const char* bookname: Name of the book to scan
+ *          - int* count: Pointer to store the number of notes found
+ *    @RETURN:
+ *          - Note*: Dynamically allocated array of Note structures
+ *          - NULL if error occurs
+ *    @NOTES:
+ *          - Caller is responsible for freeing both the array and individual note names
+ *          - Only returns .bdsb files
+ *    @EXAMPLE:
+ *          ```c
+ *          int note_count;
+ *          Note* notes = get_notes_st("mybook", &note_count);
+ *          if (notes) {
+ *              for (int i = 0; i < note_count; i++) {
+ *                  printf("Note: %s\n", notes[i].name);
+ *                  free(notes[i].name);
+ *              }
+ *              free(notes);
+ *          }
+ *          ```
+ *    @UPDATES:
+ *         03.31.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [NEW]
+ *             Function created.
+ *
+ * =======================================================================================*/
+ Note* get_notes_st(const char* bookname, int* count)
+ {
+    char* default_books_path = get_default_books_path("/books");
+    char book_path[1024];
+    snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, bookname);
+
+    DIR* dir;
+    struct dirent* entry;
+    struct stat statbuf;
+    Note* notes = NULL;
+    int note_count = 0;
+
+    // First pass - count .bdsb files
+    dir = opendir(book_path);
+    if (!dir) {
+        perror("opendir");
+        free(default_books_path);
+        *count = 0;
+        return NULL;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char fullpath[1024];
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", book_path, entry->d_name);
+
+        if (stat(fullpath, &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+            // Check if file has .bdsb extension
+            char* ext = strrchr(entry->d_name, '.');
+            if (ext && strcmp(ext, ".bdsb") == 0) {
+                note_count++;
+            }
+        }
+    }
+
+    // Allocate memory for notes array
+    notes = (Note*)malloc(note_count * sizeof(Note));
+    if (!notes) {
+        perror("malloc");
+        closedir(dir);
+        free(default_books_path);
+        *count = 0;
+        return NULL;
+    }
+
+    // Second pass - fill the array
+    rewinddir(dir);
+    int i = 0;
+    while ((entry = readdir(dir)) != NULL && i < note_count) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char fullpath[1024];
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", book_path, entry->d_name);
+
+        if (stat(fullpath, &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+            char* ext = strrchr(entry->d_name, '.');
+            if (ext && strcmp(ext, ".bdsb") == 0) {
+                // Remove .bdsb extension for the note name
+                *ext = '\0';
+                notes[i].name = strdup(entry->d_name);
+                i++;
+            }
+        }
+    }
+
+    closedir(dir);
+    free(default_books_path);
+    *count = note_count;
+    return notes;
+}
+
 /* ==============================================================================================
  *
  *     @BRIEF:
@@ -297,7 +502,8 @@ void get_books() {
  *          None.
  *
  =========================================================================================*/
-int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW* ftwbuf) {
+int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW* ftwbuf)
+{
     int rv = remove(fpath);
     if (rv)
         perror("ERROR unlinking cb.\n");
@@ -325,7 +531,8 @@ int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW
  *          None.
  *
  =========================================================================================*/
-int delete_folder_recursive(const char* fpath) {
+int delete_folder_recursive(const char* fpath)
+{
     return nftw(fpath, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
 
@@ -349,7 +556,8 @@ int delete_folder_recursive(const char* fpath) {
  *          None.
  *
  =========================================================================================*/
-void show_welcome_and_help() {
+void show_welcome_and_help()
+{
     printf("Welcome to BSDNotes!\n");
     printf("Usage:\n");
     printf("  ./bsdnotes install                  - Install BSDNotes\n");
@@ -386,7 +594,8 @@ void show_welcome_and_help() {
  *          None.
  *
  =========================================================================================*/
-int is_directory(const char *path) {
+int is_directory(const char *path)
+{
     struct stat statbuf;
     if (stat(path, &statbuf) != 0)
         return 0; // Cannot access, assume not a directory
@@ -415,7 +624,8 @@ int is_directory(const char *path) {
  *          None.
  *
  =========================================================================================*/
-int is_regular_file(const char *path) {
+int is_regular_file(const char *path)
+{
     struct stat statbuf;
     if (stat(path, &statbuf) != 0)
         return 0; // Cannot access, assume not a regular file
@@ -444,7 +654,8 @@ int is_regular_file(const char *path) {
  *          None.
  *
  =========================================================================================*/
-void find_by_tag(const char* tag) {
+void find_by_tag(const char* tag)
+{
     char* default_books_path = get_default_books_path("/books");
     DIR *books_dir = opendir(default_books_path);
     if (!books_dir) {
@@ -518,7 +729,8 @@ void find_by_tag(const char* tag) {
  *          None.
  *
  =========================================================================================*/
-void show_todos() {
+void show_todos()
+{
     find_by_tag("#todo");
 }
 
@@ -542,7 +754,8 @@ void show_todos() {
  *          None.
  *
  =========================================================================================*/
-void show_links() {
+void show_links()
+{
     find_by_tag("#link");
 }
 
@@ -567,7 +780,8 @@ void show_links() {
  *          None.
  *
  =========================================================================================*/
-void print_notes_from_book(const char *book_name) {
+void print_notes_from_book(const char *book_name)
+{
     char* default_books_path = get_default_books_path("/books");
     char book_path[1024];
     snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, book_name);

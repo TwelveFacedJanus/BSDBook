@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <time.h>
 #include <ncurses.h> // For TUI
-#include "./bsdcore.h"
+#include "bsdcore.h"
 
 void show_tui_help(WINDOW *win) {
     // Clear the window and display help information

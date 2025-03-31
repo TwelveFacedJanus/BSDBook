@@ -17,3 +17,10 @@ All notable changes to this project will be documented in this file.
 ## v1.8.5
 ### Changed
  - Okay, this is the last test update. In the next updates i will do something more accuracity.
+
+
+## v1.8.6
+### Changed
+ - Created new functions `get_books_st` and `get_notes_st` for `bsdbook.h` file.
+ - Removed `INSTALL_unix.md` file.
+ - `Makefile` updates. Now we can clean data. Now we generate libraries into `lib` folder.
