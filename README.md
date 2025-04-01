@@ -16,6 +16,13 @@ $ cd BSDBook
 $ make && make install
 ```
 
+or if u will use only server implementation, u need to build `server.c`
+```sh
+$ git clone https://github.com/TwelveFacedJanus/BSDBook.git
+$ cd BSDBook
+$ gcc src/server.c -o server -ljansson
+```
+
 ## Build web ui at your server:
 ```sh
 $ docker placeholder
@@ -26,6 +33,5 @@ $ docker placeholder
 - compiler: gcc13
 
 
-## TODO
-- webUI
-- AutoRelease v1.8.2
+## Contributors
+CONTRIBUORS.md
