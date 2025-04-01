@@ -182,6 +182,66 @@ int create_note(const char* bookname, const char* notename)
     return 0;
 }
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Gets the content of a specific note from a book.
+ *     @DESCRIPTION:
+ *          Reads the content of a .bdsb note file and returns it.
+ *     @PARAMETERS:
+ *          - const char* book_name: Name of the book
+ *          - const char* note_name: Name of the note (without .bdsb extension)
+ *     @RETURN:
+ *          - char*: Content of the note (must be freed by caller)
+ *          - NULL if error occurs
+ *     @NOTES:
+ *          - Allocates memory for the returned content
+ *     @EXAMPLE:
+ *          ```c
+ *          char* content = get_note_content("Programming", "C_Tips");
+ *          if (content) {
+ *              printf("%s\n", content);
+ *              free(content);
+ *          }
+ *          ```
+ *     @UPDATES:
+ *          None.
+ *
+ =========================================================================================*/
+char* get_note_content(const char* book_name, const char* note_name) {
+    char* default_books_path = get_default_books_path("/books");
+    char note_path[1024];
+    snprintf(note_path, sizeof(note_path), "%s/%s/%s.bdsb", default_books_path, book_name, note_name);
+
+    FILE* file = fopen(note_path, "r");
+    if (!file) {
+        free(default_books_path);
+        return NULL;
+    }
+
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // Allocate buffer for content
+    char* content = malloc(file_size + 1);
+    if (!content) {
+        fclose(file);
+        free(default_books_path);
+        return NULL;
+    }
+
+    // Read file content
+    size_t bytes_read = fread(content, 1, file_size, file);
+    content[bytes_read] = '\0';
+
+    fclose(file);
+    free(default_books_path);
+    return content;
+}
+
+
 /* =======================================================================================
  * 
  *    @BRIEF:
@@ -556,7 +616,8 @@ int delete_folder_recursive(const char* fpath)
  *          None.
  *
  =========================================================================================*/
-void show_welcome_and_help()
+__attribute__((visibility("default")))
+ void show_welcome_and_help()
 {
     printf("Welcome to BSDNotes!\n");
     printf("Usage:\n");
