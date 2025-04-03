@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>  данил чушпан
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
