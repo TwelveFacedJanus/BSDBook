@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -fPIC
-LDFLAGS = -lncurses
+LDFLAGS = -lncurses -ljansson
 SRC_DIR = src
 LIB_DIR = lib
 BIN_DIR = bin
@@ -9,7 +9,7 @@ all: $(BIN_DIR)/bsdnotes
 
 $(BIN_DIR)/bsdnotes: $(SRC_DIR)/main.c $(LIB_DIR)/libbsdcore.so
 	mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $(SRC_DIR)/main.c -o $@ -L$(LIB_DIR) -lbsdcore $(LDFLAGS)
+	$(CC) $(CFLAGS) $(SRC_DIR)/main.c $(SRC_DIR)/bsdcore.c -o $@ -L$(LIB_DIR) -lbsdcore $(LDFLAGS)
 
 # Dynamic library
 $(LIB_DIR)/libbsdcore.so: $(SRC_DIR)/bsdcore.c
