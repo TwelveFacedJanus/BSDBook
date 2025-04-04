@@ -81,6 +81,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (argc >= 2 && strcmp(argv[1], "--server") == 0) {
+        return run_http_server();
+    }
+
     if (strcmp(argv[1], "install") == 0) {
         printf("Deprecated. BSDBook already installed.");
     } else if (argc >= 2 && strcmp(argv[1], "delete") == 0) {

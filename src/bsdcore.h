@@ -6,7 +6,7 @@
  * 	@AUTHOR		      Daniil (TwelveFacedJanus) Ermolaev.
  * 	   | CONTACT:	  twofaced-janus@yandex.ru
  *	@CREATED AT:	  03.30.25
- *	@UPDATED_AT:	  03.31.25
+ *	@UPDATED_AT:	  04.03.25
  *
  *==================================================================================================*/
 
@@ -15,7 +15,14 @@
 
 
 #define _XOPEN_SOURCE 500
+#define BSDBOOKSERVER_
 #define DEFAULT_BOOKS_PATH "$HOME/books"
+
+#if defined(BSDBOOKSERVER_)
+#define PORT 8080
+#define BUFFER_SIZE 4096
+#endif // defined(BSDBOOKSERVER_)
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +35,11 @@
 #include <errno.h>
 #include <time.h>
 #include <ncurses.h>
+
+// Libraries for server
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <jansson.h>
 
 
 /*===============================================================================================
@@ -50,24 +62,18 @@
  * 		Book k = (Book){.name = "JopaCore", .notes = { n }};
  * 		```
  * 	@UPDATES:
- *	 03.30.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [NEW]:
- *	 	Structs has been created.
- *	 03.30.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]:
- *	 	Documentation has been created.
+ *	 03.30.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [NEW]:
+ *	 	      Structs has been created.
+ *	 03.30.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]:
+ *	 	      Documentation has been created.
+ *   04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *            Implementation of structs moved to bsdcode.c file.
  *
  * =============================================================================================*/
-typedef struct Note
-{
-	char* name;
-} Note;
+typedef struct Note Note;
+typedef struct Book Book;
 
 
-typedef struct Book
-{
-	char* name;
- 	Note* notes;
-    int32_t notes_count;
-} Book;
 
 
 /* ==============================================================================================
@@ -98,28 +104,15 @@ typedef struct Book
  *     		}
  *     		```
  *     @UPDATES:
- *     	03.29.25 [ Daniil (TwelveFacedJanus) Ermolaev ] - [FIXED]:
- *     		If something went wrong, function destroy program with EXIT_FAILURE error code,
- *   		but allocated memory for
- *   		structs and etc doesn't deallocate automatically.
+ *     	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FIXED]:
+ *     		     If something went wrong, function destroy program with EXIT_FAILURE error code,
+ *   		     but allocated memory for
+ *   		     structs and etc doesn't deallocate automatically.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-char* get_default_books_path(const char* path)
-{
-    char* home_dir = getenv("HOME");
-    if (home_dir == NULL) {
-        perror("Unable to get HOME directory");
-        return "";
-    }
-    char* default_books_path = malloc(strlen(home_dir) + strlen(path) + 1);
-    if (default_books_path == NULL) {
-	free(default_books_path);
-        perror("Unable to allocate memory");
-        return "";
-    }
-    sprintf(default_books_path, "%s/%s", home_dir, path);
-    return default_books_path;
-}
+char* get_default_books_path(const char* path);
 
 
 /* =======================================================================================
@@ -144,43 +137,12 @@ char* get_default_books_path(const char* path)
  *    		```
  *    @UPDATES:
  *    	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
- *    		Documentation of this function has been created.
+ *    		     Documentation of this function has been created.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  *==============================================================================================*/
-int create_note(const char* bookname, const char* notename)
-{
-    char* default_books_path = get_default_books_path("/books");
-    char note_path[1024];
-    snprintf(note_path, sizeof(note_path), "%s/%s/%s.bdsb", default_books_path, bookname, notename);
-
-    char book_path[1024];
-    snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, bookname);
-
-    free(default_books_path);
-
-    struct stat book_info;
-    if (stat(book_path, &book_info) != 0 || !(book_info.st_mode & S_IFDIR))
-    {
-        printf("Book directory does not exist. Please run 'bsdbook init default'.\n");
-        return -1;
-    }
-
-    if (access(note_path, F_OK) == 0)
-    {
-        printf("Note already exists!\n");
-        return -1;
-    }
-
-    FILE* fp = fopen(note_path, "a");
-    if (fp == NULL)
-    {
-        printf("Error creating Note: %s\n", strerror(errno));
-        return -1;
-    }
-    fclose(fp);
-    printf("Note has been created!\n");
-    return 0;
-}
+int create_note(const char* bookname, const char* notename);
 
 /* ==============================================================================================
  *
@@ -205,41 +167,11 @@ int create_note(const char* bookname, const char* notename)
  *          }
  *          ```
  *     @UPDATES:
- *          None.
+ *       04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *                Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-char* get_note_content(const char* book_name, const char* note_name) {
-    char* default_books_path = get_default_books_path("/books");
-    char note_path[1024];
-    snprintf(note_path, sizeof(note_path), "%s/%s/%s.bdsb", default_books_path, book_name, note_name);
-
-    FILE* file = fopen(note_path, "r");
-    if (!file) {
-        free(default_books_path);
-        return NULL;
-    }
-
-    // Get file size
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    // Allocate buffer for content
-    char* content = malloc(file_size + 1);
-    if (!content) {
-        fclose(file);
-        free(default_books_path);
-        return NULL;
-    }
-
-    // Read file content
-    size_t bytes_read = fread(content, 1, file_size, file);
-    content[bytes_read] = '\0';
-
-    fclose(file);
-    free(default_books_path);
-    return content;
-}
+char* get_note_content(const char* book_name, const char* note_name);
 
 
 /* =======================================================================================
@@ -263,25 +195,12 @@ char* get_note_content(const char* book_name, const char* note_name) {
  *    		```
  *    @UPDATES:
  *    	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
- *    		Documentation of this function has been created.
+ *    		     Documentation of this function has been created.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  *==============================================================================================*/
-int create_book(const char* bookname)
-{
-    char* default_books_path = get_default_books_path("/books");
-    char book_path[1024];
-    snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, bookname);
-
-    free(default_books_path);
-
-    if (mkdir(book_path, 0755) == 0)
-    {
-        printf("Book has been created!\n");
-        return 0;
-    }
-    printf("Failed to create book directory: %s\n", strerror(errno));
-    return -1;
-}
+int create_book(const char* bookname);
 
 /* =======================================================================================
  * 
@@ -302,36 +221,11 @@ int create_book(const char* bookname)
  *    @UPDATES:
  *    	03.29.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
  *    		Documentation of this function has been created.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *          Implementation of this function moved to bsdcode.c file.
  *
  *==============================================================================================*/
-void get_books()
-{
-    char* default_books_path = get_default_books_path("/books");
-    DIR* dir;
-    struct dirent* entry;
-    struct stat statbuf;
-
-    dir = opendir(default_books_path);
-    if (!dir) {
-        perror("opendir");
-        free(default_books_path);
-        return;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        char fullpath[1024];
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", default_books_path, entry->d_name);
-
-        if (stat(fullpath, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-            printf("%s\n", entry->d_name);
-        }
-    }
-    closedir(dir);
-    free(default_books_path);
-}
+void get_books();
 
 /* =======================================================================================
  * 
@@ -365,69 +259,11 @@ void get_books()
  *    @UPDATES:
  *    	03.31.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [DOC]
  *    		Documentation for this function has been created.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *          Implementation of this function moved to bsdcode.c file.
  *
  *==============================================================================================*/
-Book* get_books_st(int* count)
-{
-    char *default_books_path = get_default_books_path("/books");
-    DIR *dir;
-    struct dirent *entry;
-    struct stat statbuf;
-    Book* books = NULL;
-    int book_count = 0;
-
-    dir = opendir(default_books_path);
-    if (!dir) {
-        perror("opendir");
-        free(default_books_path);
-        *count = 0;
-        return NULL;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        char fullpath[1024];
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", default_books_path, entry->d_name);
-
-        if (stat(fullpath, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-            book_count++;
-        }
-    }
-
-    books = (Book*)malloc(book_count * sizeof(Book));
-    if (!books) {
-        perror("malloc");
-        closedir(dir);
-        free(default_books_path);
-        *count = 0;
-        return NULL;
-    }
-
-    rewinddir(dir);
-    int i = 0;
-    while ((entry = readdir(dir)) != NULL && i < book_count) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        char fullpath[1024];
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", default_books_path, entry->d_name);
-
-        if (stat(fullpath, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-            books[i].name = strdup(entry->d_name);
-            books[i].notes = NULL;
-            books[i].notes_count = 0;
-            i++;
-        }
-    }
-
-    closedir(dir);
-    free(default_books_path);
-    *count = book_count;
-    return books;
-
-}
+Book* get_books_st(int* count);
 
 /* =======================================================================================
  * 
@@ -458,85 +294,13 @@ Book* get_books_st(int* count)
  *          }
  *          ```
  *    @UPDATES:
- *         03.31.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [NEW]
- *             Function created.
+ *      03.31.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [NEW]
+ *               Function created.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  * =======================================================================================*/
- Note* get_notes_st(const char* bookname, int* count)
- {
-    char* default_books_path = get_default_books_path("/books");
-    char book_path[1024];
-    snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, bookname);
-
-    DIR* dir;
-    struct dirent* entry;
-    struct stat statbuf;
-    Note* notes = NULL;
-    int note_count = 0;
-
-    // First pass - count .bdsb files
-    dir = opendir(book_path);
-    if (!dir) {
-        perror("opendir");
-        free(default_books_path);
-        *count = 0;
-        return NULL;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-
-        char fullpath[1024];
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", book_path, entry->d_name);
-
-        if (stat(fullpath, &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
-            // Check if file has .bdsb extension
-            char* ext = strrchr(entry->d_name, '.');
-            if (ext && strcmp(ext, ".bdsb") == 0) {
-                note_count++;
-            }
-        }
-    }
-
-    // Allocate memory for notes array
-    notes = (Note*)malloc(note_count * sizeof(Note));
-    if (!notes) {
-        perror("malloc");
-        closedir(dir);
-        free(default_books_path);
-        *count = 0;
-        return NULL;
-    }
-
-    // Second pass - fill the array
-    rewinddir(dir);
-    int i = 0;
-    while ((entry = readdir(dir)) != NULL && i < note_count) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-
-        char fullpath[1024];
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", book_path, entry->d_name);
-
-        if (stat(fullpath, &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
-            char* ext = strrchr(entry->d_name, '.');
-            if (ext && strcmp(ext, ".bdsb") == 0) {
-                // Remove .bdsb extension for the note name
-                *ext = '\0';
-                notes[i].name = strdup(entry->d_name);
-                i++;
-            }
-        }
-    }
-
-    closedir(dir);
-    free(default_books_path);
-    *count = note_count;
-    return notes;
-}
+Note* get_notes_st(const char* bookname, int* count);
 
 /* ==============================================================================================
  *
@@ -559,16 +323,11 @@ Book* get_books_st(int* count)
  *          nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
  *          ```
  *     @UPDATES:
- *          None.
+ *       04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *                Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW* ftwbuf)
-{
-    int rv = remove(fpath);
-    if (rv)
-        perror("ERROR unlinking cb.\n");
-    return rv;
-}
+int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW* ftwbuf);
 
 /* ==============================================================================================
  *
@@ -588,13 +347,11 @@ int unlink_cb(const char* fpath, const struct stat *sb, int typeflag, struct FTW
  *          delete_folder_recursive("/path/to/folder");
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-int delete_folder_recursive(const char* fpath)
-{
-    return nftw(fpath, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
-}
+int delete_folder_recursive(const char* fpath);
 
 /* ==============================================================================================
  *
@@ -613,25 +370,12 @@ int delete_folder_recursive(const char* fpath)
  *          show_welcome_and_help();
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
 __attribute__((visibility("default")))
- void show_welcome_and_help()
-{
-    printf("Welcome to BSDNotes!\n");
-    printf("Usage:\n");
-    printf("  ./bsdnotes install                  - Install BSDNotes\n");
-    printf("  ./bsdnotes create book <book_name>  - Create a new book\n");
-    printf("  ./bsdnotes create note <book_name> <note_name> - Create a new note in a book\n");
-    printf("  ./bsdnotes delete book <book_name>  - Delete a book\n");
-    printf("  ./bsdnotes delete note <book_name> <note_name> - Delete a note from a book\n");
-    printf("  ./bsdnotes show <book_name>         - Show all notes in a book\n");
-    printf("  ./bsdnotes books                    - List all books\n");
-    printf("  ./bsdnotes edit <book_name> <note_name> - Edit a note in a book using NeoVim\n");
-    printf("  ./bsdnotes show todos               - Show all lines with #todo tag from all notes\n");
-    printf("  ./bsdnotes --tui                    - Open BSDNotes in TUI mode\n");
-}
+void show_welcome_and_help();
 
 /* ==============================================================================================
  *
@@ -652,16 +396,11 @@ __attribute__((visibility("default")))
  *          }
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-int is_directory(const char *path)
-{
-    struct stat statbuf;
-    if (stat(path, &statbuf) != 0)
-        return 0; // Cannot access, assume not a directory
-    return S_ISDIR(statbuf.st_mode);
-}
+int is_directory(const char *path);
 
 /* ==============================================================================================
  *
@@ -682,16 +421,11 @@ int is_directory(const char *path)
  *          }
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-int is_regular_file(const char *path)
-{
-    struct stat statbuf;
-    if (stat(path, &statbuf) != 0)
-        return 0; // Cannot access, assume not a regular file
-    return S_ISREG(statbuf.st_mode);
-}
+int is_regular_file(const char *path);
 
 /* ==============================================================================================
  *
@@ -712,63 +446,11 @@ int is_regular_file(const char *path)
  *          find_by_tag("#important");
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-void find_by_tag(const char* tag)
-{
-    char* default_books_path = get_default_books_path("/books");
-    DIR *books_dir = opendir(default_books_path);
-    if (!books_dir) {
-        perror("Unable to open 'books' directory");
-        free(default_books_path);
-        return;
-    }
-
-    struct dirent *book_entry;
-    while ((book_entry = readdir(books_dir))) {
-        char book_path[1024];
-        snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, book_entry->d_name);
-
-        if (is_directory(book_path) && strcmp(book_entry->d_name, ".") != 0 && strcmp(book_entry->d_name, "..") != 0) {
-            DIR *notes_dir = opendir(book_path);
-            if (!notes_dir) {
-                perror("Unable to open book directory");
-                continue;
-            }
-
-            struct dirent *note_entry;
-            while ((note_entry = readdir(notes_dir))) {
-                char note_path[1024];
-                snprintf(note_path, sizeof(note_path), "%s/%s", book_path, note_entry->d_name);
-
-                if (is_regular_file(note_path)) {
-                    FILE *note_file = fopen(note_path, "r");
-                    if (!note_file) {
-                        perror("Unable to open note file");
-                        continue;
-                    }
-
-                    char line[1024];
-                    int line_number = 1;
-                    while (fgets(line, sizeof(line), note_file)) {
-                        if (strstr(line, tag)) {
-                            printf("[Book: %s, Note: %s, Line %d] %s", book_entry->d_name, note_entry->d_name, line_number, line);
-                        }
-                        line_number++;
-                    }
-
-                    fclose(note_file);
-                }
-            }
-
-            closedir(notes_dir);
-        }
-    }
-
-    closedir(books_dir);
-    free(default_books_path);
-}
+void find_by_tag(const char* tag);
 
 /* ==============================================================================================
  *
@@ -787,13 +469,11 @@ void find_by_tag(const char* tag)
  *          show_todos();
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-void show_todos()
-{
-    find_by_tag("#todo");
-}
+void show_todos();
 
 /* ==============================================================================================
  *
@@ -812,13 +492,11 @@ void show_todos()
  *          show_links();
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-void show_links()
-{
-    find_by_tag("#link");
-}
+void show_links();
 
 /* ==============================================================================================
  *
@@ -838,48 +516,146 @@ void show_links()
  *          print_notes_from_book("mybook");
  *          ```
  *     @UPDATES:
- *          None.
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
  *
  =========================================================================================*/
-void print_notes_from_book(const char *book_name)
-{
-    char* default_books_path = get_default_books_path("/books");
-    char book_path[1024];
-    snprintf(book_path, sizeof(book_path), "%s/%s", default_books_path, book_name);
+void print_notes_from_book(const char *book_name);
 
-    DIR *notes_dir = opendir(book_path);
-    if (!notes_dir) {
-        perror("Unable to open book directory");
-        free(default_books_path);
-        return;
-    }
-
-    printf("Notes in book '%s':\n", book_name);
-    struct dirent *note_entry;
-    while ((note_entry = readdir(notes_dir))) {
-        char note_path[1024];
-        snprintf(note_path, sizeof(note_path), "%s/%s", book_path, note_entry->d_name);
-
-        if (is_regular_file(note_path)) {
-            // Get file metadata
-            struct stat file_stat;
-            if (stat(note_path, &file_stat) != 0) {
-                perror("Unable to get file stats");
-                continue;
-            }
-
-            // Convert last modification time to a readable format
-            char time_buf[80];
-            strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", localtime(&file_stat.st_mtime));
-
-            // Print note name and last editing time
-            printf("- %s (Last Edited: %s)\n", note_entry->d_name, time_buf);
-        }
-    }
-
-    closedir(notes_dir);
-    free(default_books_path);
-}
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Converts an array of Book structures to JSON format.
+ *     @DESCRIPTION:
+ *          Takes a Book array and converts it to a JSON array of objects.
+ *     @PARAMETERS:
+ *          - Book* books: Array of Book structures
+ *          - int count: Number of books in the array
+ *     @RETURN:
+ *          - json_t*: JSON array containing book data
+ *          - NULL if error occurs
+ *     @NOTES:
+ *          - Caller is responsible for freeing the returned JSON object
+ *     @EXAMPLE:
+ *          ```c
+ *          json_t* books_json = books_to_json(books, count);
+ *          if (books_json) {
+ *              char* json_str = json_dumps(books_json, JSON_INDENT(2));
+ *              printf("%s\n", json_str);
+ *              free(json_str);
+ *              json_decref(books_json);
+ *          }
+ *          ```
+ *     @UPDATES:
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
+ *
+ =========================================================================================*/
+json_t* books_to_json(Book* books, int count);
 
 
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Converts an array of Note structures to JSON format.
+ *     @DESCRIPTION:
+ *          Takes a Note array and converts it to a JSON array of objects.
+ *     @PARAMETERS:
+ *          - Note* notes: Array of Note structures
+ *          - int count: Number of notes in the array
+ *     @RETURN:
+ *          - json_t*: JSON array containing note data
+ *          - NULL if error occurs
+ *     @NOTES:
+ *          - Caller is responsible for freeing the returned JSON object
+ *     @EXAMPLE:
+ *          ```c
+ *          json_t* notes_json = notes_to_json(notes, count);
+ *          if (notes_json) {
+ *              char* json_str = json_dumps(notes_json, JSON_INDENT(2));
+ *              printf("%s\n", json_str);
+ *              free(json_str);
+ *              json_decref(notes_json);
+ *          }
+ *          ```
+ *     @UPDATES:
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
+ *
+ =========================================================================================*/
+json_t* notes_to_json(Note* notes, int count);
+
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Handles requests for specific note content.
+ *     @DESCRIPTION:
+ *          Processes requests to /book/{book_name}/{note_name} endpoint.
+ *     @PARAMETERS:
+ *          - int client_socket: Client socket descriptor
+ *          - const char* path: Request path
+ *     @RETURN:
+ *          - 0 on success, -1 on error
+ *     @NOTES:
+ *          - Returns note content as plain text
+ *     @EXAMPLE:
+ *          ```c
+ *          handle_note_content_request(client_sock, "/book/Programming/C_Tips");
+ *          ```
+ *     @UPDATES:
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
+ *
+ =========================================================================================*/
+int handle_note_content_request(int client_socket, const char* path);
+
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Updated HTTP request handler with note content support.
+ *     @DESCRIPTION:
+ *          Handles all HTTP requests including the new note content endpoint.
+ *     @PARAMETERS:
+ *          - int client_socket: Client socket descriptor
+ *          - const char* request: HTTP request string
+ *     @RETURN:
+ *          - 0 on success, -1 on error
+ *     @NOTES:
+ *          - Now supports /books, /books/{book}, and /book/{book}/{note}
+ *     @EXAMPLE:
+ *          ```c
+ *          handle_http_request(client_sock, "GET /book/Programming/C_Tips HTTP/1.1");
+ *          ```
+ *     @UPDATES:
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
+ *
+ =========================================================================================*/
+int handle_http_request(int client_socket, const char* request);
+
+/* ==============================================================================================
+ *
+ *     @BRIEF:
+ *          Main HTTP server function.
+ *     @DESCRIPTION:
+ *          Creates and runs an HTTP server that listens for connections and handles requests.
+ *     @PARAMETERS:
+ *          - None
+ *     @RETURN:
+ *          - 0 on success, -1 on error
+ *     @NOTES:
+ *          - Listens on port 8080 by default
+ *          - Uses handle_http_request() to process each request
+ *     @EXAMPLE:
+ *          ```c
+ *          int main() {
+ *              return run_http_server();
+ *          }
+ *          ```
+ *     @UPDATES:
+ *      04.03.25 - [ Daniil (TwelveFacedJanus) Ermolaev ] - [FEATURE]:
+ *               Implementation of this function moved to bsdcode.c file.
+ *
+ =========================================================================================*/
+int run_http_server();
 #endif
